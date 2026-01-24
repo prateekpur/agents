@@ -1,7 +1,6 @@
 """
 Fact-checker agent that verifies information and validates sources.
 """
-from typing import List, Optional
 
 from src.agents.base_agent import BaseAgent
 from src.models import AgentMessage
@@ -9,11 +8,11 @@ from src.models import AgentMessage
 
 class FactCheckerAgent(BaseAgent):
     """Agent responsible for fact-checking and validating information."""
-    
-    def _build_prompt(self, input_text: str, context: Optional[List[AgentMessage]] = None) -> str:
+
+    def _build_prompt(self, input_text: str, context: list[AgentMessage] | None = None) -> str:
         """Build the fact-checking prompt."""
-        
-        base_prompt = f"""You are a fact-checker agent. Your role is to verify the accuracy of information 
+
+        base_prompt = f"""You are a fact-checker agent. Your role is to verify the accuracy of information
 and validate sources. Be critical and thorough in your assessment.
 
 Question/Claim to verify: {input_text}
@@ -37,5 +36,5 @@ Provide a detailed fact-check analysis."""
                     for source in msg.sources:
                         context_text += f"- {source.title}\n"
             base_prompt += context_text
-        
+
         return base_prompt

@@ -106,7 +106,30 @@ MAX_TOKENS=4096
 pytest
 ```
 
-## 📝 Requirements
+## � Code Quality
+
+**Linting and Formatting:**
+
+```bash
+# Run all linters (Black, Ruff, MyPy)
+./lint.sh
+
+# Auto-format code
+./format.sh
+
+# Or run individually:
+python -m black src/ tests/ main.py
+python -m ruff check src/ tests/ main.py
+python -m mypy src/
+```
+
+**Linters included:**
+
+- **Black** - Code formatter
+- **Ruff** - Fast Python linter
+- **MyPy** - Static type checker
+
+## �📝 Requirements
 
 - Python 3.11+
 - Anthropic API key (Claude Sonnet 4)

@@ -1,7 +1,6 @@
 """
 Researcher agent that gathers information and conducts research.
 """
-from typing import List, Optional
 
 from src.agents.base_agent import BaseAgent
 from src.models import AgentMessage
@@ -9,11 +8,11 @@ from src.models import AgentMessage
 
 class ResearcherAgent(BaseAgent):
     """Agent responsible for conducting research and gathering information."""
-    
-    def _build_prompt(self, input_text: str, context: Optional[List[AgentMessage]] = None) -> str:
+
+    def _build_prompt(self, input_text: str, context: list[AgentMessage] | None = None) -> str:
         """Build the research prompt."""
-        
-        base_prompt = f"""You are a research agent. Your role is to gather comprehensive information 
+
+        base_prompt = f"""You are a research agent. Your role is to gather comprehensive information
 about the given question. Focus on finding accurate, relevant information from multiple perspectives.
 
 Question: {input_text}
@@ -32,5 +31,5 @@ Provide a comprehensive research summary with sources."""
             for msg in context:
                 context_text += f"\n{msg.agent_name}: {msg.content}\n"
             base_prompt += context_text
-        
+
         return base_prompt

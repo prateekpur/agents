@@ -1,7 +1,6 @@
 """
 Synthesizer agent that combines information into coherent answers.
 """
-from typing import List, Optional
 
 from src.agents.base_agent import BaseAgent
 from src.models import AgentMessage
@@ -9,11 +8,11 @@ from src.models import AgentMessage
 
 class SynthesizerAgent(BaseAgent):
     """Agent responsible for synthesizing information into coherent answers."""
-    
-    def _build_prompt(self, input_text: str, context: Optional[List[AgentMessage]] = None) -> str:
+
+    def _build_prompt(self, input_text: str, context: list[AgentMessage] | None = None) -> str:
         """Build the synthesis prompt."""
-        
-        base_prompt = f"""You are a synthesizer agent. Your role is to combine information from multiple 
+
+        base_prompt = f"""You are a synthesizer agent. Your role is to combine information from multiple
 sources into a clear, coherent, and well-structured answer.
 
 Question: {input_text}
@@ -38,5 +37,5 @@ Provide a well-reasoned, synthesized answer."""
                     for source in msg.sources:
                         context_text += f"- {source.title}\n"
             base_prompt += context_text
-        
+
         return base_prompt

@@ -2,6 +2,8 @@
 Coordinator agent that orchestrates collaboration between agents.
 """
 
+import re
+
 from loguru import logger
 
 from src.agents import FactCheckerAgent, ResearcherAgent, SynthesizerAgent
@@ -94,23 +96,76 @@ class CoordinatorAgent:
     def _calculate_confidence(self, fact_check_content: str) -> float:
         """
         Calculate confidence score based on fact-checker output.
-        This is a simple heuristic - can be improved.
+        Uses word boundary matching and balanced formula.
         """
+        # Input validation
+        if not isinstance(fact_check_content, str):
+            logger.warning(
+                f"Invalid input type for confidence calculation: {type(fact_check_content)}"
+            )
+            return 0.5
+
+        if not fact_check_content.strip():
+            logger.debug("Empty fact check content, using default confidence")
+            return 0.5
+
         content_lower = fact_check_content.lower()
 
-        # Simple keyword-based confidence calculation
-        high_confidence_keywords = ["verified", "accurate", "confirmed", "reliable"]
-        low_confidence_keywords = ["uncertain", "unverified", "questionable", "contradicts"]
+        # Expanded keyword lists
+        high_confidence_keywords = [
+            "verified",
+            "accurate",
+            "confirmed",
+            "reliable",
+            "factual",
+            "substantiated",
+            "corroborated",
+            "validated",
+            "authentic",
+        ]
+        low_confidence_keywords = [
+            "uncertain",
+            "unverified",
+            "questionable",
+            "contradicts",
+            "false",
+            "misleading",
+            "disputed",
+            "debunked",
+            "inaccurate",
+        ]
 
-        high_count = sum(1 for kw in high_confidence_keywords if kw in content_lower)
-        low_count = sum(1 for kw in low_confidence_keywords if kw in content_lower)
+        # Use word boundaries for exact matches
+        def count_keyword_matches(keywords: list[str], content: str) -> int:
+            """Count exact word matches using regex word boundaries."""
+            total = 0
+            for keyword in keywords:
+                pattern = r"\b" + re.escape(keyword.lower()) + r"\b"
+                matches = len(re.findall(pattern, content))
+                total += matches
+            return total
 
-        # Calculate score (0.5-1.0 range)
-        if high_count + low_count == 0:
-            return 0.7  # Default
+        high_count = count_keyword_matches(high_confidence_keywords, content_lower)
+        low_count = count_keyword_matches(low_confidence_keywords, content_lower)
 
-        confidence = 0.5 + (0.5 * (high_count / (high_count + low_count)))
-        return round(confidence, 2)
+        logger.debug(f"Confidence indicators - High: {high_count}, Low: {low_count}")
+
+        total_indicators = high_count + low_count
+
+        # No indicators found - return neutral
+        if total_indicators == 0:
+            logger.debug("No confidence indicators found, using default: 0.5")
+            return 0.5
+
+        # Calculate balanced confidence score
+        positive_ratio = high_count / total_indicators
+
+        # Maps 0 -> 0.1, 0.5 -> 0.5, 1.0 -> 0.9 (more balanced than before)
+        confidence = 0.1 + (0.8 * positive_ratio)
+
+        result = round(confidence, 2)
+        logger.debug(f"Final confidence score: {result}")
+        return result
 
     def _build_reasoning(self) -> str:
         """Build the reasoning explanation from agent contributions."""

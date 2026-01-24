@@ -5,8 +5,11 @@ Base agent class for the multi-agent system.
 import os
 import re
 from abc import ABC, abstractmethod
+from typing import Optional
+from urllib.parse import urlparse
 
 from anthropic import Anthropic
+from loguru import logger
 
 from src.config import AgentConfig
 from src.models import AgentMessage, Source, SourceType
@@ -103,72 +106,138 @@ class BaseAgent(ABC):
         Returns:
             List of extracted sources
         """
+        # Input validation
+        if not isinstance(text, str):
+            logger.warning(f"Invalid input type for source extraction: {type(text)}")
+            return []
+
+        if not text.strip():
+            return []
+
         sources = []
         seen_urls = set()
 
-        # Pattern 1: [Source: description] format
-        source_pattern = r"\[Source:\s*([^\]]+)\]"
-        matches = re.finditer(source_pattern, text, re.IGNORECASE)
-
-        for match in matches:
-            source_text = match.group(1).strip()
-
-            # Check if it contains a URL
-            url_pattern = r"https?://[^\s\])]+"
-            url_match = re.search(url_pattern, source_text)
-
-            url = url_match.group(0) if url_match else None
-            if url:
-                seen_urls.add(url)
-
-            source = Source(
-                title=(
-                    source_text
-                    if not url_match
-                    else source_text.split("http")[0].strip() or source_text
-                ),
-                url=url,
-                source_type=SourceType.WEB if url_match else SourceType.DERIVED,
-                content_snippet=None,
+        try:
+            # Pattern 1: [Source: description] format
+            source_pattern = r"\[Source:\s*([^\]]+)\]"
+            # Improved URL pattern with better character handling
+            url_pattern = (
+                r"(https?://(?:[-\w.])+(?::[0-9]+)?(?:/(?:[\w/_.~:?#\[\]@!$&'()*+,;=-])*)?)"
             )
-            sources.append(source)
 
-        # Pattern 2: Look for URLs in parentheses or standalone
-        # Skip URLs already found in [Source: ...] tags
-        url_pattern = r"https?://[^\s\)\]]+(?:\.[^\s\)\]]+)?"
-        url_matches = re.finditer(url_pattern, text)
+            matches = re.finditer(source_pattern, text, re.IGNORECASE)
 
-        for match in url_matches:
-            url = match.group(0).rstrip(".,;:")
-            if url not in seen_urls and "." in url:  # Ensure it's a valid URL and not duplicate
-                seen_urls.add(url)
+            for match in matches:
+                source_text = match.group(1).strip()
 
-                # Try to find surrounding context for title
-                start = max(0, match.start() - 100)
-                end = min(len(text), match.end() + 50)
-                context = text[start:end]
+                if not source_text:
+                    continue
 
-                # Extract a simple title from context
-                title = self._extract_title_from_context(context, url)
+                # Check if it contains a URL
+                url_match = re.search(url_pattern, source_text)
+                url = self._validate_url(url_match.group(1)) if url_match else None
+
+                # Skip duplicate URLs
+                if url and url in seen_urls:
+                    continue
+
+                if url:
+                    seen_urls.add(url)
+                    # Properly extract title by removing URL from position
+                    title = source_text[: url_match.start()].strip()
+                    if not title:
+                        title = self._extract_title_from_url(url)
+                else:
+                    title = source_text
 
                 source = Source(
                     title=title,
                     url=url,
-                    source_type=SourceType.WEB,
-                    content_snippet=context[:100] if len(context) > 100 else context,
+                    source_type=SourceType.WEB if url else SourceType.DERIVED,
+                    content_snippet=None,
                 )
                 sources.append(source)
 
-        # Pattern 3: Look for academic citations like (Author, Year)
-        citation_pattern = r"\(([A-Z][a-z]+(?:\s+et\s+al\.?)?,\s*\d{4})\)"
-        citation_matches = re.finditer(citation_pattern, text)
+            # Pattern 2: Look for URLs in parentheses or standalone
+            # Skip URLs already found in [Source: ...] tags
+            # Improved pattern to not capture closing brackets or parens
+            url_pattern_standalone = r"(?<!\[Source:\s)https?://(?:[-\w.])+(?::[0-9]+)?(?:/(?:[\w/_.~:?#@!$&'()*+,;=-])*)?(?=[\s\]\).,;:]|$)"
+            url_matches = re.finditer(url_pattern_standalone, text)
 
-        for match in citation_matches:
-            citation = match.group(1)
-            source = Source(title=citation, source_type=SourceType.RESEARCH, content_snippet=None)
-            sources.append(source)
+            for match in url_matches:
+                url = self._validate_url(match.group(0))
+                if url and url not in seen_urls:
+                    seen_urls.add(url)
+
+                    # Try to find surrounding context for title
+                    start = max(0, match.start() - 100)
+                    end = min(len(text), match.end() + 50)
+                    context = text[start:end]
+
+                    # Extract a simple title from context
+                    title = self._extract_title_from_context(context, url)
+
+                    source = Source(
+                        title=title,
+                        url=url,
+                        source_type=SourceType.WEB,
+                        content_snippet=context[:100] if len(context) > 100 else context,
+                    )
+                    sources.append(source)
+
+            # Pattern 3: Look for academic citations like (Author, Year)
+            citation_pattern = r"\(([A-Z][a-z]+(?:\s+et\s+al\.?)?,\s*\d{4})\)"
+            citation_matches = re.finditer(citation_pattern, text)
+
+            for match in citation_matches:
+                citation = match.group(1)
+                source = Source(
+                    title=citation, source_type=SourceType.RESEARCH, content_snippet=None
+                )
+                sources.append(source)
+
+        except re.error as e:
+            logger.error(f"Regex error in source extraction: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error in source extraction: {e}")
+            return []
 
         return sources
+
+    def _validate_url(self, url: str) -> Optional[str]:
+        """
+        Validate and normalize URL.
+
+        Args:
+            url: The URL to validate
+
+        Returns:
+            Validated URL or None if invalid
+        """
+        try:
+            parsed = urlparse(url)
+            if parsed.scheme in ("http", "https") and parsed.netloc:
+                return url
+        except Exception as e:
+            logger.debug(f"Invalid URL encountered: {url}, error: {e}")
+        return None
+
+    def _extract_title_from_url(self, url: str) -> str:
+        """
+        Extract a reasonable title from URL when no title text is available.
+
+        Args:
+            url: The URL to extract title from
+
+        Returns:
+            A title derived from the URL
+        """
+        try:
+            parsed = urlparse(url)
+            return parsed.netloc or url
+        except Exception:
+            return url
 
     def _extract_title_from_context(self, context: str, url: str) -> str:
         """

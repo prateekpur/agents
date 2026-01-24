@@ -156,7 +156,7 @@ class TestCoordinatorAgent:
         fact_check_content = "Some neutral content without specific keywords."
         confidence = coordinator._calculate_confidence(fact_check_content)
 
-        assert confidence == 0.7
+        assert confidence == 0.5
 
     def test_build_reasoning(self, mock_agents):
         """Test reasoning building from agent messages."""

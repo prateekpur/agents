@@ -28,7 +28,7 @@ class SystemConfig(BaseModel):
     anthropic_api_key: Optional[str] = Field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY"))
     
     # Default model settings
-    default_model: str = Field(default_factory=lambda: os.getenv("DEFAULT_MODEL", "claude-sonnet-4-20250514"))
+    default_model: str = Field(default_factory=lambda: os.getenv("DEFAULT_MODEL", "claude-haiku-3-5"))
     temperature: float = Field(default_factory=lambda: float(os.getenv("TEMPERATURE", "0.7")))
     max_tokens: int = Field(default_factory=lambda: int(os.getenv("MAX_TOKENS", "4096")))
     

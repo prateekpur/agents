@@ -8,7 +8,7 @@ from src.agents.researcher import ResearcherAgent
 from src.agents.fact_checker import FactCheckerAgent
 from src.agents.synthesizer import SynthesizerAgent
 from src.config import AgentConfig
-from src.models import AgentMessage
+from src.models import AgentMessage, SourceType
 
 
 class ConcreteAgent(BaseAgent):
@@ -87,14 +87,66 @@ class TestBaseAgent:
             mock_anthropic_client.messages.create.assert_called_once()
     
     def test_extract_sources(self, agent_config, mock_anthropic_client):
-        """Test source extraction (placeholder implementation)."""
+        """Test source extraction from text."""
         with patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'test-key'}):
             agent = ConcreteAgent(agent_config)
             
             sources = agent._extract_sources("Some text with sources")
             
-            # Current implementation returns empty list
             assert isinstance(sources, list)
+    
+    def test_extract_sources_with_source_tag(self, agent_config, mock_anthropic_client):
+        """Test extracting sources with [Source: ...] format."""
+        with patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'test-key'}):
+            agent = ConcreteAgent(agent_config)
+            
+            text = "According to research [Source: Climate Report 2025] and [Source: https://example.com/article]"
+            sources = agent._extract_sources(text)
+            
+            assert len(sources) == 2
+            assert sources[0].title == "Climate Report 2025"
+            assert sources[0].source_type == SourceType.DERIVED
+            assert sources[1].url == "https://example.com/article"
+            assert sources[1].source_type == SourceType.WEB
+    
+    def test_extract_sources_with_urls(self, agent_config, mock_anthropic_client):
+        """Test extracting sources from URLs in text."""
+        with patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'test-key'}):
+            agent = ConcreteAgent(agent_config)
+            
+            text = "Research shows https://www.nature.com/articles/123 and data from https://arxiv.org/paper/456"
+            sources = agent._extract_sources(text)
+            
+            assert len(sources) >= 2
+            assert any("nature.com" in s.url for s in sources if s.url)
+            assert any("arxiv.org" in s.url for s in sources if s.url)
+    
+    def test_extract_sources_with_citations(self, agent_config, mock_anthropic_client):
+        """Test extracting academic citations."""
+        with patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'test-key'}):
+            agent = ConcreteAgent(agent_config)
+            
+            text = "According to research (Smith, 2024) and studies (Johnson et al., 2023)"
+            sources = agent._extract_sources(text)
+            
+            assert len(sources) >= 2
+            assert any("Smith, 2024" in s.title for s in sources)
+            assert any("Johnson et al., 2023" in s.title for s in sources)
+            assert all(s.source_type == SourceType.RESEARCH for s in sources)
+    
+    def test_extract_sources_mixed_formats(self, agent_config, mock_anthropic_client):
+        """Test extracting sources from mixed formats."""
+        with patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'test-key'}):
+            agent = ConcreteAgent(agent_config)
+            
+            text = """Based on [Source: WHO Guidelines] and research (Brown, 2025).
+            More info at https://www.cdc.gov/report.html"""
+            sources = agent._extract_sources(text)
+            
+            assert len(sources) >= 3
+            source_types = [s.source_type for s in sources]
+            assert SourceType.DERIVED in source_types or SourceType.WEB in source_types
+            assert SourceType.RESEARCH in source_types
 
 
 class TestResearcherAgent:

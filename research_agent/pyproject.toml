@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "research-agent"
+version = "0.1.0"
+description = "Multi-agent collaboration system for high-quality research answers"
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

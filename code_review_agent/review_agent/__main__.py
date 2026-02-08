@@ -5,11 +5,12 @@ import sys
 from pathlib import Path
 
 from review_agent.core.findings import FindingCollection, Severity
-from review_agent.passes import CorrectnessPass, SecurityPass, StylePass
+from review_agent.passes import CorrectnessPass, PerformancePass, SecurityPass, StylePass
 
 
 PASSES = {
     "correctness": CorrectnessPass,
+    "performance": PerformancePass,
     "security": SecurityPass,
     "style": StylePass,
 }

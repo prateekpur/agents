@@ -9,7 +9,7 @@ Code Review Agent performs static analysis passes over your codebase to identify
 - **Correctness issues**: Bugs, logic errors, and potential runtime failures
 - **Style violations**: Formatting and naming convention issues
 - **Security vulnerabilities**: eval/exec, hardcoded secrets, shell injection, insecure deserialization, weak hashing, SQL injection
-- **Performance concerns**: Inefficient code patterns
+- **Performance concerns**: range(len()), string concat in loops, list comprehension opportunities, sorted() vs min/max
 
 ## Installation
 
@@ -37,6 +37,7 @@ code_review_agent/
     └── passes/
         ├── __init__.py
         ├── correctness.py   # Correctness analysis pass
+        ├── performance.py   # Performance anti-pattern detection
         ├── security.py      # Security vulnerability detection
         └── style.py         # Style and naming convention checks
 ```

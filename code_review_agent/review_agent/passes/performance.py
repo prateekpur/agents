@@ -253,11 +253,11 @@ class _PerformanceChecker(ast.NodeVisitor):
             self.generic_visit(node)
             return
 
-        if not isinstance(node.slice, ast.Constant):
+        idx = self._resolve_index(node.slice)
+        if idx is None:
             self.generic_visit(node)
             return
 
-        idx = node.slice.value
         if idx == 0:
             self._add_finding(
                 message="sorted(...)[0] is O(n log n) — use min() for O(n)",
@@ -278,3 +278,17 @@ class _PerformanceChecker(ast.NodeVisitor):
             )
 
         self.generic_visit(node)
+
+    @staticmethod
+    def _resolve_index(node: ast.expr) -> int | None:
+        """Resolve an index to int, handling `-1` which is UnaryOp(USub, 1) in AST."""
+        if isinstance(node, ast.Constant) and isinstance(node.value, int):
+            return node.value
+        if (
+            isinstance(node, ast.UnaryOp)
+            and isinstance(node.op, ast.USub)
+            and isinstance(node.operand, ast.Constant)
+            and isinstance(node.operand.value, int)
+        ):
+            return -node.operand.value
+        return None
